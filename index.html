@@ -16,8 +16,6 @@
       --snake-body: #238636;
       --food: #f78166;
       --food-glow: rgba(247,129,102,0.4);
-      --gold: #ffd700;
-      --gold-glow: rgba(255,215,0,0.45);
       --text: #e6edf3;
       --muted: #8b949e;
       --accent: #58a6ff;
@@ -230,8 +228,7 @@
   const overlayMsg = document.getElementById('overlay-msg');
   const overlayBtn = document.getElementById('overlay-btn');
 
-  let snake, dir, nextDir, food, goldenFood, score, best, level, speed, loop, running, particles;
-  let foodsEaten, goldenTimer, goldenDuration;
+  let snake, dir, nextDir, food, score, best, level, speed, loop, running, particles;
 
   function init() {
     snake = [
@@ -245,10 +242,6 @@
     level = 1;
     speed = 150;
     particles = [];
-    goldenFood = null;
-    goldenTimer = 0;
-    goldenDuration = 0;
-    foodsEaten = 0;
     placeFood();
     updateHUD();
   }
@@ -257,23 +250,9 @@
     let pos;
     do {
       pos = { x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS) };
-    } while (snake.some(s => s.x === pos.x && s.y === pos.y) || (goldenFood && pos.x === goldenFood.x && pos.y === goldenFood.y));
+    } while (snake.some(s => s.x === pos.x && s.y === pos.y));
     food = pos;
     food.pulse = 0;
-  }
-
-  function spawnGoldenFood() {
-    let pos;
-    do {
-      pos = { x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS) };
-    } while (
-      snake.some(s => s.x === pos.x && s.y === pos.y) ||
-      (food && pos.x === food.x && pos.y === food.y)
-    );
-    goldenFood = pos;
-    goldenFood.pulse = 0;
-    goldenDuration = Math.round(7000 / speed); // ~7 seconds in ticks
-    goldenTimer = goldenDuration;
   }
 
   function updateHUD() {
@@ -288,29 +267,17 @@
   }
 
   // --- Particles ---
-  function drawStar(ctx, cx, cy, points, outerR, innerR) {
-    ctx.beginPath();
-    for (let i = 0; i < points * 2; i++) {
-      const angle = (i * Math.PI / points) - Math.PI / 2;
-      const r = i % 2 === 0 ? outerR : innerR;
-      i === 0 ? ctx.moveTo(cx + r * Math.cos(angle), cy + r * Math.sin(angle))
-              : ctx.lineTo(cx + r * Math.cos(angle), cy + r * Math.sin(angle));
-    }
-    ctx.closePath();
-  }
-
-  function spawnParticles(x, y, color = '#f78166', count = 12) {
-    for (let i = 0; i < count; i++) {
-      const angle = (Math.PI * 2 / count) * i + (Math.random() - 0.5) * 0.4;
-      const spd = 1.5 + Math.random() * 2.5;
+  function spawnParticles(x, y) {
+    for (let i = 0; i < 12; i++) {
+      const angle = (Math.PI * 2 / 12) * i + (Math.random() - 0.5) * 0.4;
+      const speed = 1.5 + Math.random() * 2.5;
       particles.push({
         x: x * CELL + CELL / 2,
         y: y * CELL + CELL / 2,
-        vx: Math.cos(angle) * spd,
-        vy: Math.sin(angle) * spd,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
         life: 1,
         size: 3 + Math.random() * 3,
-        color,
       });
     }
   }
@@ -328,7 +295,7 @@
   function drawParticles() {
     for (let p of particles) {
       ctx.globalAlpha = p.life;
-      ctx.fillStyle = p.color || '#f78166';
+      ctx.fillStyle = '#f78166';
       ctx.beginPath();
       ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
       ctx.fill();
@@ -350,7 +317,7 @@
       }
     }
 
-    // Regular food
+    // Food
     food.pulse = (food.pulse + 0.08) % (Math.PI * 2);
     const fp = 0.5 + 0.5 * Math.sin(food.pulse);
     const fr = CELL / 2 - 3 + fp * 2;
@@ -371,46 +338,6 @@
     ctx.beginPath();
     ctx.arc(fx, fy, fr, 0, Math.PI * 2);
     ctx.fill();
-
-    // Golden food
-    if (goldenFood) {
-      goldenFood.pulse = (goldenFood.pulse + 0.12) % (Math.PI * 2);
-      const gfp = 0.5 + 0.5 * Math.sin(goldenFood.pulse);
-      const gfr = CELL / 2 - 2 + gfp * 2.5;
-      const gfx = goldenFood.x * CELL + CELL / 2;
-      const gfy = goldenFood.y * CELL + CELL / 2;
-
-      // Urgency flicker when < 30% time left
-      const urgency = goldenTimer / goldenDuration;
-      const flicker = urgency < 0.3 ? 0.5 + 0.5 * Math.sin(goldenFood.pulse * 6) : 1;
-
-      ctx.save();
-      ctx.globalAlpha = flicker;
-      const gglow = ctx.createRadialGradient(gfx, gfy, 0, gfx, gfy, gfr + 12);
-      gglow.addColorStop(0, 'rgba(255,215,0,0.6)');
-      gglow.addColorStop(1, 'rgba(255,215,0,0)');
-      ctx.fillStyle = gglow;
-      ctx.beginPath();
-      ctx.arc(gfx, gfy, gfr + 14, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Star shape
-      ctx.fillStyle = '#ffd700';
-      ctx.strokeStyle = '#ffec6e';
-      ctx.lineWidth = 1.5;
-      drawStar(ctx, gfx, gfy, 5, gfr, gfr * 0.45);
-      ctx.fill();
-      ctx.stroke();
-
-      // Countdown arc
-      ctx.strokeStyle = `rgba(255,215,0,${0.3 + 0.4 * urgency})`;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(gfx, gfy, gfr + 5, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * urgency);
-      ctx.stroke();
-
-      ctx.restore();
-    }
 
     // Snake
     const r = 5;
@@ -459,28 +386,14 @@
 
     snake.unshift(head);
 
-    // Golden food expiry countdown
-    if (goldenFood) {
-      goldenTimer--;
-      if (goldenTimer <= 0) goldenFood = null;
-    }
-
     if (head.x === food.x && head.y === food.y) {
       score += level * 10;
-      spawnParticles(food.x, food.y, '#f78166', 12);
-      foodsEaten++;
+      spawnParticles(food.x, food.y);
       level = Math.floor(score / 100) + 1;
       speed = Math.max(60, 150 - (level - 1) * 12);
       placeFood();
-      if (foodsEaten % 5 === 0 && !goldenFood) spawnGoldenFood();
       clearInterval(loop);
       loop = setInterval(tick, speed);
-    } else if (goldenFood && head.x === goldenFood.x && head.y === goldenFood.y) {
-      const bonus = level * 50;
-      score += bonus;
-      spawnParticles(goldenFood.x, goldenFood.y, '#ffd700', 20);
-      goldenFood = null;
-      // no pop → snake grows
     } else {
       snake.pop();
     }
